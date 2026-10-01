@@ -47,7 +47,7 @@ coverage.xml
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
-# Documentation build
+# Documentation build (MkDocs)
 site/
 
 # IDE / Editor configuration
@@ -59,3 +59,12 @@ site/
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Machine Learning models & heavy weights
+*.pkl
+*.joblib
+models/
+
+# Environment / Secrets
+.env
+.env.*
