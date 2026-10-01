@@ -1,0 +1,37 @@
+site_name: NLP Esperanto Docs
+site_description: Documentación de la librería de NLP en Esperanto
+site_author: 
+repo_url: https://github.com/EduardoEO/nlp_esperanto_practica
+repo_name: EduardoEO/nlp_esperanto_practica
+
+theme:
+  name: material
+  language: es
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Cambiar a modo oscuro
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Cambiar a modo claro
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+
+nav:
+  - Inicio: index.md
+  - Referencia de la API: api.md
