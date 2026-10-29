@@ -1,8 +1,27 @@
-"""Validador del *Contrato de datos* del enunciado.
+"""Módulo de validación y control de calidad del contrato de datos para datasets en Esperanto.
 
-CSV UTF-8, separador ``;``, cabecera ``text;class``, un párrafo por fila, sin ``;``
-dentro del texto, sin HTML, enlaces ni referencias. Lo usan el script del dataset, la
-integración continua y el cuaderno (para aceptar el dataset de cualquier equipo).
+Este módulo define y verifica las especificaciones formales que debe cumplir cualquier
+archivo de datos textuales antes de ingresar al pipeline de procesamiento y modelado.
+Asegura la consistencia estructural del corpus, previene errores de parseo y garantiza
+que los textos estén limpios de artefactos web.
+
+Especificaciones del formato verificado:
+- Codificación: UTF-8 estricto sin marca de orden de bytes (BOM).
+- Estructura tabular: Formato CSV con delimitador de punto y coma (`;`).
+- Columnas requeridas: Exactamente dos columnas con cabecera `text;class`.
+- Granularidad: Un párrafo por fila, sin saltos de línea embebidos.
+- Integridad sintáctica: El campo `text` no debe contener el delimitador (`;`).
+- Limpieza textual: Sin etiquetas HTML, sin enlaces web ni citas bibliográficas (`[1]`).
+- Calidad del corpus: Validación de número mínimo de clases, umbral mínimo de párrafos
+  por clase, detección de desbalanceo severo y control de párrafos duplicados.
+
+Uso básico:
+    >>> from esperanto_nlp.contract import validate_file
+    >>> report = validate_file("data/dataset.csv")
+    >>> if report.ok:
+    ...     print("Dataset válido:", report.stats)
+    ... else:
+    ...     print("Errores encontrados:", report.errors)
 """
 from __future__ import annotations
 
@@ -14,22 +33,32 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Union
 
-_HTML = re.compile(r"<[^>]+>")
-_URL = re.compile(r"(?:https?://|www\.)", re.IGNORECASE)
-_REF = re.compile(r"\[\s*\d+\s*\]")
+_HTML = re.compile(r"<[^>]+>") # Detecta etiquetas
+_URL = re.compile(r"(?:https?://|www\.)", re.IGNORECASE) # Detecta enlaces
+_REF = re.compile(r"\[\s*\d+\s*\]") # Detecta números de citas típos de Wikipedia como [1]
 
 
 @dataclass
 class ContractReport:
+    """Informe con los resultados de la validación del contrato de datos.
+
+    Attributes:
+        errors: Lista de mensajes de error críticos que invalidan el contrato.
+        warnings: Lista de advertencias sobre calidad o distribución de los datos.
+        stats: Diccionario con estadísticas del corpus (número de filas, clases y media de caracteres).
+    """
+
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     stats: Dict[str, object] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
+        """Indica si el dataset cumple estrictamente el contrato (sin errores críticos)."""
         return not self.errors
 
     def summary(self) -> str:
+        """Genera un resumen textual formateado con errores, advertencias y estadísticas."""
         lines = [f"Contrato de datos: {'CUMPLE' if self.ok else 'NO CUMPLE'}"]
         lines += [f"  ERROR: {e}" for e in self.errors]
         lines += [f"  aviso: {w}" for w in self.warnings]
@@ -40,6 +69,22 @@ class ContractReport:
 def validate_csv_text(
     content: str, *, min_classes: int = 3, min_per_class: int = 300, max_errors: int = 25
 ) -> ContractReport:
+    """Valida el contenido en texto de un CSV contra las reglas del contrato de datos.
+
+    Analiza la estructura tabular, codificación sin BOM, integridad de columnas y
+    limpieza del texto, calculando métricas de balanceo y volumen.
+
+    Args:
+        content: Cadena de texto completa con el contenido del archivo CSV.
+        min_classes: Número mínimo requerido de clases temáticas distintas (por defecto 3).
+        min_per_class: Umbral mínimo sugerido de párrafos por clase (por defecto 300).
+        max_errors: Límite máximo de errores a registrar para evitar saturar la salida.
+
+    Returns:
+        ContractReport: Objeto con el estado de validación (.ok), lista de errores
+        bloqueantes (.errors), advertencias no bloqueantes (.warnings) y estadísticas
+        del corpus (.stats).
+    """
     rep = ContractReport()
 
     def err(msg: str) -> None:
@@ -102,6 +147,20 @@ def validate_csv_text(
 
 
 def validate_file(path: Union[str, Path], **kwargs) -> ContractReport:  # type: ignore[no-untyped-def]
+    """Lee un archivo desde disco y valida su cumplimiento del contrato de datos.
+
+    Verifica en primer lugar que la codificación sea UTF-8 estricta sin errores
+    de decodificación. Si la lectura es exitosa, delega la validación de estructura
+    y contenido en `validate_csv_text`.
+
+    Args:
+        path: Ruta al archivo CSV en el sistema de archivos (str o Path).
+        **kwargs: Parámetros opcionales transmitidos a `validate_csv_text`
+            (como `min_classes`, `min_per_class`, `max_errors`).
+
+    Returns:
+        ContractReport: Objeto con los resultados, advertencias y estadísticas de la validación.
+    """
     raw = Path(path).read_bytes()
     try:
         content = raw.decode("utf-8")

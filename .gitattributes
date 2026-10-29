@@ -1,0 +1,18 @@
+# Control de saltos de línea unificado para entornos mixtos (Windows / Linux)
+# Por defecto normaliza todos los archivos de texto a saltos LF (estándar Unix/Git)
+* text=auto eol=lf
+
+# Código fuente, datos, configuración y documentación siempre con LF
+*.py text eol=lf
+*.json text eol=lf
+*.csv text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.txt text eol=lf
+*.ipynb text eol=lf
+*.toml text eol=lf
+
+# Scripts específicos de Windows requieren CRLF para el intérprete CMD
+*.cmd text eol=crlf
+*.bat text eol=crlf
