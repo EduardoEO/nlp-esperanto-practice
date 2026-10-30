@@ -1,5 +1,5 @@
 {
-  "_comment": "Temáticas: Ciencia (física / biología / química). Categorías verificadas en Vikipedio. Las exclusiones salen de `build_dataset.py subcats`: biografías, esbozos ('Ĝermoj pri ...') y subcategorías que no son ciencia en sí (magia, ficción, premios, libros...). Revisad las 'dudosas' con el ruido medido. El profesor debe validar las temáticas.",
+  "_comment": "Configuración del corpus científico en Esperanto: Física, Biología y Química. Define las categorías raíz de Vikipedio, los límites de profundidad por temática y las listas de exclusión (biografías, esbozos 'Ĝermoj' y subcategorías tangenciales) para minimizar el ruido de etiquetas y maximizar la coherencia léxica del conjunto de datos.",
   "wiki_api": "https://eo.wikipedia.org/w/api.php",
   "category_prefix": "Kategorio:",
   "user_agent": "nlp-esperanto-practice/0.1 (proyecto academico CUNEF; https://github.com/EduardoEO/nlp-esperanto-practice)",
