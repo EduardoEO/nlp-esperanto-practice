@@ -41,7 +41,15 @@ sys.path.insert(0, str(_ROOT / "src"))   # funciona aunque el paquete no esté i
 from esperanto_nlp.cleaning import clean_paragraph, is_valid_paragraph
 from esperanto_nlp.contract import validate_file
 
-# Windows: si la salida se redirige (> archivo.txt) Python usa cp1252 y fallaría con ĉ, ĝ, ŝ, ŭ...
+# Compatibilidad multiplataforma y blindaje de codificación en Windows:
+# Por defecto, cuando la salida estándar (stdout o stderr) se redirige a un archivo o tubería
+# (por ejemplo: python build_dataset.py explore > log.txt), el intérprete de Python en Windows
+# utiliza la codificación predeterminada del sistema operativo (cp1252 / Windows-1252).
+# En dicha codificación, los caracteres con diacríticos propios del Esperanto (ĉ, ĝ, ĥ, ĵ, ŝ, ŭ)
+# no existen en la tabla de caracteres y provocarían una excepción fatal 'UnicodeEncodeError'.
+# Comprobamos no ser terminal interactivo (indica salida redirigida a disco o tubería)
+# y reconfiguramos el flujo a UTF-8 estricto con reemplazo seguro de caracteres para garantizar
+# una ejecución robusta y reproducible sin colapsos de consola.
 for _stream in (sys.stdout, sys.stderr):
     if not _stream.isatty() and hasattr(_stream, "reconfigure"):
         _stream.reconfigure(encoding="utf-8", errors="replace")
@@ -56,6 +64,19 @@ class ExtractError(RuntimeError):
 # EXTRACT: hablar con la API
 # ============================================================================
 def make_session(user_agent: str):  # noqa: ANN201
+    """Crea y configura una sesión HTTP persistente para interactuar con Wikimedia.
+
+    Utiliza `requests.Session` para mantener abiertas las conexiones subyacentes
+    (HTTP Keep-Alive), acelerando notablemente las peticiones continuas a la API.
+    Aplica de forma centralizada la cabecera User-Agent requerida por la Fundación
+    Wikimedia para evitar bloqueos por cortafuegos.
+
+    Args:
+        user_agent: Cadena identificativa de la aplicación y contacto.
+
+    Returns:
+        requests.Session: Objeto de sesión configurado y listo para realizar consultas.
+    """
     try:
         import requests  # import perezoso: las funciones de Transform no necesitan requests
     except ImportError:
@@ -70,7 +91,26 @@ def make_session(user_agent: str):  # noqa: ANN201
 
 def api_get(session, api_url: str, params: Dict[str, Any], *, retries: int = 4,
             delay: float = 0.2, timeout: float = 20.0) -> Dict[str, Any]:
-    """GET con reintentos y espera creciente (1s, 2s, 4s...). Devuelve el JSON."""
+    """Ejecuta una petición GET contra la API de MediaWiki con reintentos y retroceso exponencial.
+
+    Añade automáticamente los parámetros `format=json` y `formatversion=2` para recibir
+    respuestas en formato JSON limpio. Implementa una pausa de cortesía entre peticiones
+    y reintenta la conexión ante fallos transitorios de red o caídas de la API.
+
+    Args:
+        session: Instancia activa de `requests.Session`.
+        api_url: URL base del endpoint de la API (`https://eo.wikipedia.org/w/api.php`).
+        params: Parámetros específicos de la consulta de MediaWiki.
+        retries: Número máximo de intentos antes de abortar (por defecto 4).
+        delay: Pausa de cortesía en segundos entre peticiones (por defecto 0.2).
+        timeout: Límite de tiempo en segundos para esperar la respuesta (por defecto 20.0).
+
+    Returns:
+        Dict[str, Any]: Diccionario con el JSON parseado de la respuesta de la API.
+
+    Raises:
+        ExtractError: Si la API responde con un error estructurado o si fallan todos los reintentos.
+    """
     full = {"format": "json", "formatversion": "2", **params}
     last: Optional[Exception] = None
     for attempt in range(retries):
@@ -89,7 +129,22 @@ def api_get(session, api_url: str, params: Dict[str, Any], *, retries: int = 4,
 
 
 def category_members(session, cfg: Dict[str, Any], category: str, member_type: str) -> List[Dict[str, Any]]:
-    """Miembros de una categoría (``page`` = artículos, ``subcat`` = subcategorías)."""
+    """Obtiene los miembros (páginas o subcategorías) de una categoría de Wikipedia con paginación.
+
+    Consulta el módulo `list=categorymembers` de la API de MediaWiki. Maneja el
+    bucle de paginación (`continue`) para recuperar todos los elementos existentes
+    sin importar si superan el límite máximo por petición (500 elementos).
+
+    Args:
+        session: Sesión HTTP activa.
+        cfg: Diccionario de configuración con prefijo de categoría y endpoint.
+        category: Nombre de la categoría (sin el prefijo `Kategorio:`).
+        member_type: Tipo de miembros a buscar: `"page"` (artículos) o `"subcat"` (subcategorías).
+
+    Returns:
+        List[Dict[str, Any]]: Lista de diccionarios con la información de cada miembro
+        (`pageid`, `title`, `ns`).
+    """
     params: Dict[str, Any] = {
         "action": "query", "list": "categorymembers",
         "cmtitle": f"{cfg['category_prefix']}{category}", "cmtype": member_type, "cmlimit": "500",
@@ -106,9 +161,18 @@ def category_members(session, cfg: Dict[str, Any], category: str, member_type: s
 
 
 def category_info(session, cfg: Dict[str, Any], names: List[str]) -> Dict[str, Dict[str, int]]:
-    """Tamaño de varias categorías (``pages`` = artículos, ``subcats`` = subcategorías).
+    """Consulta en lotes el volumen de páginas y subcategorías para una lista de categorías.
 
-    Usa ``prop=categoryinfo``, que acepta hasta 50 títulos por petición.
+    Utiliza la propiedad `prop=categoryinfo` agrupando títulos en bloques de 50 en 50
+    (máximo permitido por la API) para minimizar el número de peticiones de red.
+
+    Args:
+        session: Sesión HTTP activa.
+        cfg: Diccionario de configuración general.
+        names: Lista con los nombres de las categorías a consultar.
+
+    Returns:
+        Dict[str, Dict[str, int]]: Mapeo `{nombre_categoria: {"pages": int, "subcats": int}}`.
     """
     info: Dict[str, Dict[str, int]] = {}
     for i in range(0, len(names), 50):
@@ -124,8 +188,20 @@ def category_info(session, cfg: Dict[str, Any], names: List[str]) -> Dict[str, D
 
 
 def describe_subcategories(session, cfg: Dict[str, Any], category: str) -> List[Tuple[str, int, int]]:
-    """Subcategorías directas de ``category`` como ``(nombre, artículos, subcategorías)``,
-    ordenadas de mayor a menor número de artículos."""
+    """Obtiene y ordena las subcategorías directas según su volumen de contenido.
+
+    Herramienta fundamental para la exploración previa de datos. Permite identificar
+    qué ramas del árbol tienen mayor peso para decidir listas de exclusión de ruido.
+
+    Args:
+        session: Sesión HTTP activa.
+        cfg: Diccionario de configuración general.
+        category: Nombre de la categoría raíz a inspeccionar.
+
+    Returns:
+        List[Tuple[str, int, int]]: Lista ordenada descendentemente por artículos de tuplas
+        `(nombre_subcategoria, num_articulos, num_subcategorias)`.
+    """
     names = [m["title"].split(":", 1)[-1] for m in category_members(session, cfg, category, "subcat")]
     info = category_info(session, cfg, names)
     rows = [(n, info.get(n, {}).get("pages", 0), info.get(n, {}).get("subcats", 0)) for n in names]
@@ -133,9 +209,20 @@ def describe_subcategories(session, cfg: Dict[str, Any], category: str) -> List[
 
 
 def crawl_category(session, cfg: Dict[str, Any], root: str) -> Dict[int, str]:
-    """Recorre la categoría ``root`` y sus subcategorías (BFS) hasta ``max_category_depth``.
+    """Rastrea el árbol de una categoría en anchura (BFS) aplicando límites y poda de ramas.
 
-    Devuelve ``{pageid: título}``. Se detiene al superar ``max_candidates_per_class``.
+    Explora la categoría raíz y desciende por sus subcategorías hasta la profundidad
+    indicada en `max_category_depth`. Aplica la lista de exclusiones (`exclude_subcategories`)
+    para podar ramas indeseadas (como biografías o esbozos) y mantiene un registro de
+    categorías visitadas para evitar bucles infinitos por referencias circulares.
+
+    Args:
+        session: Sesión HTTP activa.
+        cfg: Diccionario de configuración (profundidad, exclusiones, límites).
+        root: Nombre de la categoría raíz donde se inicia el rastreo.
+
+    Returns:
+        Dict[int, str]: Diccionario `{pageid: titulo_articulo}` con todos los artículos encontrados.
     """
     found: Dict[int, str] = {}
     excluded = {x.casefold() for x in cfg.get("exclude_subcategories", [])}
@@ -157,7 +244,37 @@ def crawl_category(session, cfg: Dict[str, Any], root: str) -> Dict[int, str]:
 
 
 def fetch_article(session, cfg: Dict[str, Any], pageid: int, cache_dir: Optional[Path]) -> Optional[Dict[str, Any]]:
-    """Texto plano de un artículo + id de revisión. Usa caché en disco si existe."""
+    """Descarga el contenido crudo de un artículo de Wikipedia con caché en disco y trazabilidad.
+
+    Recupera el texto de un artículo identificado por su `pageid` usando la API de MediaWiki.
+    Aplica una política de caché en disco: si el archivo `{pageid}.json` ya existe localmente
+    en `cache_dir`, lo carga inmediatamente sin realizar ninguna petición de red.
+
+    Si no está en caché, consulta la API con los parámetros:
+    - `prop=extracts|info`: Solicita el extracto del texto y los metadatos de la página.
+    - `explaintext=1`: Pide a MediaWiki que devuelva texto plano legible, eliminando la
+      sintaxis wiki pesada (plantillas, infoboxes, marcado de negritas e imágenes).
+    - `pageids`: Identificador numérico del artículo.
+
+    Además, extrae el `lastrevid` (identificador de revisión exacto) para garantizar la
+    reproducibilidad científica y trazabilidad temporal del corpus, y persiste el resultado
+    en disco en formato JSON con codificación UTF-8.
+
+    Args:
+        session: Instancia activa de `requests.Session` para reuso de conexiones HTTP.
+        cfg: Diccionario de configuración con el endpoint de la API y pausas de cortesía.
+        pageid: Identificador numérico único del artículo en MediaWiki.
+        cache_dir: Directorio local (`data/raw/`) donde consultar o persistir la caché JSON.
+            Si es None, no se utiliza caché en disco.
+
+    Returns:
+        Optional[Dict[str, Any]]: Diccionario con la estructura:
+            - `pageid` (int): Identificador del artículo.
+            - `title` (str): Título oficial de la página.
+            - `revid` (int): Número de versión/revisión en Wikipedia.
+            - `extract` (str): Texto plano crudo devuelto por la API.
+            Devuelve None si el artículo no existe o está marcado como `missing`.
+    """
     cache_file = cache_dir / f"{pageid}.json" if cache_dir else None
     if cache_file and cache_file.exists():
         return json.loads(cache_file.read_text(encoding="utf-8"))
@@ -185,7 +302,22 @@ SKIP_SECTIONS = {"referencoj", "eksteraj ligiloj", "vidu ankaŭ", "notoj", "bibl
 
 
 def extract_paragraphs(extract: str) -> List[str]:
-    """Separa el texto plano en líneas-párrafo, saltando encabezados y secciones inútiles."""
+    """Separa el extracto de texto en párrafos de prosa, descartando encabezados y secciones no útiles.
+
+    Analiza el texto línea a línea reconociendo la jerarquía de encabezados de MediaWiki
+    (`== Sección ==`, `=== Subsección ===`). Implementa un mecanismo de seguimiento de nivel
+    (`skip_level`): cuando encuentra una sección perteneciente a `SKIP_SECTIONS` (como
+    referencias, enlaces externos, bibliografía o notas), descarta automáticamente todo su
+    contenido y el de cualquier subsección anidada hasta que aparezca una sección nueva
+    de nivel jerárquico igual o superior.
+
+    Args:
+        extract: Texto plano completo del artículo devuelto por la API de MediaWiki.
+
+    Returns:
+        List[str]: Lista de líneas correspondientes al cuerpo del artículo, libres de
+        encabezados y secciones residuales.
+    """
     paragraphs: List[str] = []
     skip_level: Optional[int] = None
     for line in extract.splitlines():
@@ -205,7 +337,24 @@ def extract_paragraphs(extract: str) -> List[str]:
 
 
 def article_paragraphs(article: Dict[str, Any], cfg: Dict[str, Any]) -> List[str]:
-    """Párrafos válidos de un artículo (limpios, sin duplicados, máx. N por artículo)."""
+    """Extrae, desinfecta, valida y limita los párrafos informativos de un artículo.
+
+    Aplica el pipeline de transformación completo sobre el contenido de un artículo:
+    1. Divide el texto en párrafos de prosa con `extract_paragraphs`.
+    2. Desinfecta cada párrafo mediante `clean_paragraph` (elimina HTML, plantillas, enlaces, etc.).
+    3. Descarta párrafos duplicados dentro del mismo artículo.
+    4. Evalúa los criterios de calidad con `is_valid_paragraph` (longitud, palabras, ratio alfabético).
+    5. Si el número de párrafos válidos supera `max_paragraphs_per_article`, realiza un
+       muestreo determinista utilizando una semilla derivada del `pageid`. Esto evita que
+       artículos muy extensos monopolicen el dataset y previene el sesgo por falta de diversidad.
+
+    Args:
+        article: Diccionario con la información del artículo (`pageid`, `title`, `extract`).
+        cfg: Diccionario de configuración con límites volumétricos y semilla.
+
+    Returns:
+        List[str]: Lista de párrafos desinfectados y validados listos para el dataset.
+    """
     seen: Set[str] = set()
     valid: List[str] = []
     for raw in extract_paragraphs(article["extract"]):
@@ -226,7 +375,22 @@ def article_paragraphs(article: Dict[str, Any], cfg: Dict[str, Any]) -> List[str
 
 
 def drop_ambiguous(candidates: Dict[str, Dict[int, str]]) -> Dict[str, Dict[int, str]]:
-    """Quita los artículos presentes en más de una clase (su etiqueta sería ambigua)."""
+    """Descarta artículos interdisciplinares presentes en más de una clase temática.
+
+    En Wikipedia, algunos artículos pertenecen simultáneamente a varias categorías
+    (por ejemplo, un artículo de biofísica catalogado en Biología y Física).
+    Asignarle una sola clase introduciría ruido y contradicciones al clasificador.
+    Esta función cuenta cuántas clases reclaman cada `pageid` y elimina por completo
+    aquellos que aparezcan en dos o más clases, garantizando que el corpus contenga
+    únicamente textos con asignación temática unívoca.
+
+    Args:
+        candidates: Diccionario `{nombre_clase: {pageid: titulo_articulo}}`.
+
+    Returns:
+        Dict[str, Dict[int, str]]: Mismo diccionario filtrado, conservando solo artículos
+        exclusivos de una única clase.
+    """
     owners: Dict[int, int] = defaultdict(int)
     for pages in candidates.values():
         for pid in pages:
@@ -236,7 +400,22 @@ def drop_ambiguous(candidates: Dict[str, Dict[int, str]]) -> Dict[str, Dict[int,
 
 
 def balance_rows(rows: List[Dict[str, Any]], classes: List[str], seed: int) -> List[Dict[str, Any]]:
-    """Reduce todas las clases al tamaño de la menor (muestreo con semilla)."""
+    """Equilibra el número de filas por clase al tamaño de la clase minoritaria.
+
+    Garantiza que el conjunto de datos esté perfectamente balanceado entre las distintas
+    disciplinas científicas, evitando sesgos hacia la temática más abundante en Wikipedia.
+    Si una clase tiene más párrafos que la menor, realiza un submuestreo determinista
+    ordenado mediante una semilla específica para esa clase.
+
+    Args:
+        rows: Lista de diccionarios de párrafos con su campo `class`.
+        classes: Lista de nombres de las clases temáticas objetivo.
+        seed: Semilla numérica para inicializar el generador pseudoaleatorio.
+
+    Returns:
+        List[Dict[str, Any]]: Lista balanceada con exactamente el mismo número de párrafos
+        por clase.
+    """
     by_class: Dict[str, List[Dict[str, Any]]] = {c: [r for r in rows if r["class"] == c] for c in classes}
     smallest = min(len(v) for v in by_class.values()) if by_class else 0
     out: List[Dict[str, Any]] = []
@@ -253,6 +432,23 @@ def balance_rows(rows: List[Dict[str, Any]], classes: List[str], seed: int) -> L
 # LOAD: escritura determinista
 # ============================================================================
 def write_outputs(rows: List[Dict[str, Any]], out_dir: Path, cfg: Dict[str, Any]) -> None:
+    """Persiste en disco el dataset etiquetado, los metadatos de trazabilidad y las estadísticas.
+
+    Genera tres archivos deterministas en `out_dir`:
+    1. `dataset.csv`: El archivo principal exigido por el contrato de datos (UTF-8, delimitador `;`,
+       cabecera `text;class`), con un párrafo limpio por fila.
+    2. `dataset_meta.csv`: Metadatos detallados para cada fila (`row`, `article_id`, `title`,
+       `revid`, `class`, `text_sha256`). El identificador de artículo (`article_id`) es vital
+       para permitir particiones train/test agrupadas por artículo y evitar *data leakage*.
+       El hash SHA-256 asegura la integridad criptográfica de cada texto.
+    3. `dataset_stats.json`: Resumen estadístico del corpus en JSON (marca temporal UTC,
+       recuento de párrafos por temática, número de artículos de origen y copia de la configuración).
+
+    Args:
+        rows: Lista de diccionarios de filas validadas y balanceadas.
+        out_dir: Directorio de destino en disco (típicamente `data/`).
+        cfg: Diccionario de configuración utilizado en la extracción.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     with open(out_dir / "dataset.csv", "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f, delimiter=";", lineterminator="\n")
@@ -285,6 +481,17 @@ def write_outputs(rows: List[Dict[str, Any]], out_dir: Path, cfg: Dict[str, Any]
 # Orquestación
 # ============================================================================
 def load_config(path: Path) -> Dict[str, Any]:
+    """Carga y valida el archivo de configuración JSON del dataset.
+
+    Args:
+        path: Ruta al archivo `dataset_config.json`.
+
+    Returns:
+        Dict[str, Any]: Configuración parseada.
+
+    Raises:
+        SystemExit: Si faltan claves obligatorias (`wiki_api`, `classes` o `seed`).
+    """
     cfg = json.loads(path.read_text(encoding="utf-8"))
     for key in ("wiki_api", "classes", "seed"):
         if key not in cfg:
@@ -293,6 +500,19 @@ def load_config(path: Path) -> Dict[str, Any]:
 
 
 def collect_candidates(session, cfg: Dict[str, Any]) -> Dict[str, Dict[int, str]]:
+    """Recopila los artículos candidatos para cada clase y descarta los ambiguos.
+
+    Rastrea las categorías raíz de cada clase aplicando su profundidad correspondiente
+    (priorizando `class_depth` si está definida, o `max_category_depth` en su defecto).
+    Aplica `drop_ambiguous` para eliminar de raíz los artículos compartidos por varias clases.
+
+    Args:
+        session: Sesión HTTP activa.
+        cfg: Configuración con clases, endpoints y profundidades.
+
+    Returns:
+        Dict[str, Dict[int, str]]: Mapeo `{clase: {pageid: titulo}}` con artículos no ambiguos.
+    """
     cands: Dict[str, Dict[int, str]] = {}
     for cls, roots in cfg["classes"].items():
         pages: Dict[int, str] = {}
@@ -306,6 +526,25 @@ def collect_candidates(session, cfg: Dict[str, Any]) -> Dict[str, Dict[int, str]
 
 
 def build_rows(session, cfg: Dict[str, Any], cache_dir: Optional[Path], limit_articles: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Motor orquestador del ETL: extrae, procesa y ensambla todas las filas del dataset.
+
+    Coordina todo el flujo de generación:
+    1. Identifica artículos candidatos no ambiguos con `collect_candidates`.
+    2. Baraja aleatoriamente los artículos de cada clase con la semilla fija.
+    3. Descarga cada artículo (con caché en `cache_dir`) y extrae párrafos válidos.
+    4. Garantiza unicidad global: ningún párrafo se repite en todo el corpus (`seen_texts`).
+    5. Se detiene al alcanzar `target_paragraphs_per_class` por temática.
+    6. Aplica `balance_rows` para asegurar clases perfectamente equilibradas.
+
+    Args:
+        session: Sesión HTTP activa.
+        cfg: Configuración con parámetros de calidad y límites.
+        cache_dir: Directorio local para la caché JSON (`data/raw/`).
+        limit_articles: Límite opcional de artículos por clase para pruebas rápidas.
+
+    Returns:
+        List[Dict[str, Any]]: Lista de diccionarios con los párrafos y sus metadatos.
+    """
     cands = collect_candidates(session, cfg)
     rows: List[Dict[str, Any]] = []
     seen_texts: Set[str] = set()
@@ -339,6 +578,21 @@ def build_rows(session, cfg: Dict[str, Any], cache_dir: Optional[Path], limit_ar
 
 
 def cmd_explore(args: argparse.Namespace) -> int:
+    """Ejecuta el subcomando 'explore': comprueba la viabilidad de las temáticas en Vikipedio.
+
+    Realiza un muestreo ligero sin descargar el corpus completo:
+    1. Recopila artículos candidatos por clase y descarta los ambiguos.
+    2. Imprime ejemplos aleatorios de títulos encontrados.
+    3. Descarga una muestra reducida de artículos de sondeo (`args.probe`).
+    4. Estima la media de párrafos válidos por artículo y proyecta si se superará
+       holgadamente el mínimo de 300 párrafos recomendado por clase.
+
+    Args:
+        args: Argumentos parseados de la línea de comandos (`config`, `out`, `probe`, `depth`).
+
+    Returns:
+        int: 0 si la exploración finalizó correctamente.
+    """
     cfg = _apply_overrides(load_config(args.config), args)
     session = make_session(cfg["user_agent"])
     print("Explorando categorías (comprobación de viabilidad)...")
@@ -372,6 +626,18 @@ def _apply_overrides(cfg: Dict[str, Any], args: argparse.Namespace) -> Dict[str,
 
 
 def cmd_subcats(args: argparse.Namespace) -> int:
+    """Ejecuta el subcomando 'subcats': lista las subcategorías y su tamaño para decidir exclusiones.
+
+    Inspecciona las subcategorías directas de las raíces configuradas y las muestra
+    ordenadas por cantidad de páginas, marcando las que ya están en `exclude_subcategories`.
+    Permite auditar el árbol de categorías y detectar ramas ruidosas (como biografías o esbozos).
+
+    Args:
+        args: Argumentos parseados de la línea de comandos (`config`, `categories`, `top`).
+
+    Returns:
+        int: 0 tras imprimir el listado.
+    """
     cfg = load_config(args.config)
     session = make_session(cfg["user_agent"])
     excluded = {x.casefold() for x in cfg.get("exclude_subcategories", [])}
@@ -389,6 +655,18 @@ def cmd_subcats(args: argparse.Namespace) -> int:
 
 
 def cmd_build(args: argparse.Namespace) -> int:
+    """Ejecuta el subcomando 'build': construye el dataset completo y valida el contrato.
+
+    Orquesta todo el proceso de recopilación, transformación, balanceo y persistencia.
+    Al finalizar, ejecuta `validate_file` sobre el `dataset.csv` generado para asegurar
+    que cumple estrictamente con el contrato de datos antes de finalizar.
+
+    Args:
+        args: Argumentos parseados de la línea de comandos (`config`, `out`, `depth`, `limit_articles`).
+
+    Returns:
+        int: 0 si el dataset se generó y cumplió el contrato; 1 en caso contrario.
+    """
     cfg = _apply_overrides(load_config(args.config), args)
     session = make_session(cfg["user_agent"])
     print("Construyendo dataset...")
@@ -403,6 +681,18 @@ def cmd_build(args: argparse.Namespace) -> int:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """Punto de entrada principal para la interfaz de línea de comandos (CLI).
+
+    Configura el analizador de argumentos `argparse` con los tres subcomandos
+    disponibles (`explore`, `build`, `subcats`) y captura errores de red `ExtractError`
+    para emitir diagnósticos amigables.
+
+    Args:
+        argv: Lista opcional de argumentos de línea de comandos (por defecto `sys.argv[1:]`).
+
+    Returns:
+        int: Código de salida para el sistema operativo (0 = éxito, >0 = error).
+    """
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
     for name, fn, help_ in (("explore", cmd_explore, "comprobar viabilidad de las categorías"),
