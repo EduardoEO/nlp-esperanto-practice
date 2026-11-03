@@ -1,4 +1,9 @@
-"""Pruebas del ETL contra una Wikipedia SIMULADA (sin red)."""
+"""Pruebas unitarias para el pipeline ETL de construcción del dataset (build_dataset.py).
+
+Evalúa la extracción, transformación, limpieza, desambiguación, balanceo, 
+caché y generación de metadatos contra un entorno simulado en memoria de 
+la API MediaWiki (sin dependencias de red).
+"""
 import csv
 import json
 
@@ -10,6 +15,7 @@ PARA = ("La {t} estas tre grava en la sporta mondo kaj multaj spektantoj sekvas 
 
 
 def make_article(title, n_paragraphs=4):
+    """Genera texto simulado de un artículo con secciones, cabeceras y referencias."""
     body = "\n".join(PARA.format(t=title, n=i) for i in range(n_paragraphs))
     return ("Mallonga enkonduko.\n" + body + "\n\n== Historio ==\n" + body.split("\n")[0] +
             " Plia teksto ĉi tie ĝis la fino.\n\n== Referencoj ==\n" + PARA.format(t="REF", n=99) +
@@ -25,17 +31,24 @@ TITLES = {1: "Unua", 2: "Dua", 3: "Tria", 4: "Kvara", 5: "Kvina"}
 
 
 class FakeResponse:
+    """Simula una respuesta HTTP con métodos .json() y .raise_for_status()."""
+
     def __init__(self, data):
         self._d = data
+
     def raise_for_status(self):
         pass
+
     def json(self):
         return self._d
 
 
 class FakeSession:
+    """Simula una sesión de requests para la API MediaWiki con paginación y caché."""
+
     def __init__(self):
         self.calls = 0
+
     def get(self, url, params=None, timeout=None):
         self.calls += 1
         if params.get("list") == "categorymembers":
@@ -77,6 +90,7 @@ CFG = {
 
 
 def test_extract_paragraphs_skips_headings_and_reference_sections():
+    """Verifica que extract_paragraphs descarte cabeceras '==' y secciones 'Referencoj'."""
     paras = bd.extract_paragraphs(make_article("X"))
     joined = " ".join(paras)
     assert "REF" not in joined and "SUB" not in joined and "==" not in joined
@@ -84,6 +98,7 @@ def test_extract_paragraphs_skips_headings_and_reference_sections():
 
 
 def test_article_paragraphs_limit_and_determinism():
+    """Verifica el límite de párrafos por artículo, la ausencia de ';' y la reproducibilidad."""
     art = {"pageid": 5, "title": "T", "extract": make_article("Test", 8)}
     a = bd.article_paragraphs(art, CFG)
     b = bd.article_paragraphs(art, CFG)
@@ -92,17 +107,20 @@ def test_article_paragraphs_limit_and_determinism():
 
 
 def test_crawl_follows_subcategories_and_pagination():
+    """Verifica que el rastreo explore subcategorías y consuma la paginación con cmcontinue."""
     pages = bd.crawl_category(FakeSession(), CFG, "Alfa")
     assert pages == {1: "Unua", 2: "Dua", 3: "Tria"}
     assert bd.crawl_category(FakeSession(), {**CFG, "max_category_depth": 0}, "Alfa") == {1: "Unua", 2: "Dua"}
 
 
 def test_drop_ambiguous():
+    """Verifica la eliminación de artículos presentes en múltiples categorías a la vez."""
     out = bd.drop_ambiguous({"a": {1: "x", 2: "y"}, "g": {2: "y", 4: "z"}})
     assert out == {"a": {1: "x"}, "g": {4: "z"}}
 
 
 def test_full_build_is_valid_deterministic_and_cached(tmp_path):
+    """Verifica el pipeline ETL completo: contrato válido, metadatos y reutilización de caché."""
     s1 = FakeSession()
     rows1 = bd.build_rows(s1, CFG, tmp_path / "raw")
     assert {r["class"] for r in rows1} == {"alfa", "gamo"}
@@ -123,13 +141,14 @@ def test_full_build_is_valid_deterministic_and_cached(tmp_path):
 
 
 def test_balance_rows():
+    """Verifica que el submuestreo equilibre el número de párrafos al de la clase minoritaria."""
     rows = [{"class": "a", "text": str(i)} for i in range(10)] + [{"class": "b", "text": "x"} for _ in range(3)]
     out = bd.balance_rows(rows, ["a", "b"], 1)
     assert sum(r["class"] == "a" for r in out) == 3 and sum(r["class"] == "b" for r in out) == 3
 
 
 def test_exclude_subcategories_skips_biographies():
-    """Las subcategorías listadas en ``exclude_subcategories`` no se recorren."""
+    """Verifica que las subcategorías vetadas en exclude_subcategories no se recorran."""
     cfg = {**CFG, "exclude_subcategories": ["beta"]}
     found = bd.crawl_category(FakeSession(), cfg, "Alfa")
     assert "Tria" not in found.values()      # estaba dentro de la subcategoría excluida "Beta"
@@ -137,7 +156,7 @@ def test_exclude_subcategories_skips_biographies():
 
 
 def test_main_reports_network_errors_without_traceback(monkeypatch, capsys):
-    """Sin red, el script termina con código 2 y un mensaje claro (no un traceback)."""
+    """Verifica que los fallos de red terminen con código 2 y mensaje legible sin traceback."""
     def boom(args):
         raise bd.ExtractError("sin red")
     monkeypatch.setattr(bd, "cmd_explore", boom)
@@ -146,17 +165,20 @@ def test_main_reports_network_errors_without_traceback(monkeypatch, capsys):
 
 
 def test_describe_subcategories_lists_sizes_sorted():
+    """Verifica que describe_subcategories liste los conteos de páginas y subcategorías."""
     rows = bd.describe_subcategories(FakeSession(), CFG, "Alfa")
     assert rows == [("Beta", 1, 0)]
 
 
 def test_category_info_handles_empty_category():
+    """Verifica que category_info asigne ceros cuando MediaWiki omite categorías vacías."""
     info = bd.category_info(FakeSession(), CFG, ["Alfa", "Vacia"])
     assert info["Alfa"] == {"pages": 2, "subcats": 1}
     assert info["Vacia"] == {"pages": 0, "subcats": 0}
 
 
 def test_depth_override_replaces_config_value():
+    """Verifica que el argumento CLI --depth sobrescriba max_category_depth del JSON."""
     import argparse
     cfg = bd._apply_overrides({"max_category_depth": 2}, argparse.Namespace(depth=0))
     assert cfg["max_category_depth"] == 0
@@ -164,6 +186,7 @@ def test_depth_override_replaces_config_value():
 
 
 def test_class_depth_controls_how_deep_each_class_crawls():
+    """Verifica el control individual de profundidad por clase definido en class_depth."""
     base = {**CFG, "classes": {"x": ["Alfa"]}, "seed": 1}
     shallow = bd.collect_candidates(FakeSession(), {**base, "class_depth": {"x": 0}})
     deep = bd.collect_candidates(FakeSession(), {**base, "class_depth": {"x": 1}})
@@ -172,6 +195,7 @@ def test_class_depth_controls_how_deep_each_class_crawls():
 
 
 def test_depth_flag_overrides_class_depth():
+    """Verifica que el argumento CLI --depth tenga prioridad sobre class_depth."""
     import argparse
     cfg = bd._apply_overrides({"max_category_depth": 2, "class_depth": {"a": 1}}, argparse.Namespace(depth=0))
     assert cfg["max_category_depth"] == 0 and cfg["class_depth"] == {}
