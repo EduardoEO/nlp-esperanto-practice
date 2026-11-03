@@ -51,6 +51,7 @@ class FakeSession:
 
     def get(self, url, params=None, timeout=None):
         self.calls += 1
+        params = params or {}
         if params.get("list") == "categorymembers":
             cat = params["cmtitle"].split(":", 1)[1]
             pages, subs = WIKI.get(cat, ([], []))
@@ -69,7 +70,7 @@ class FakeSession:
             for title in params["titles"].split("|"):
                 n = title.split(":", 1)[1]
                 arts, subs = WIKI.get(n, ([], []))
-                page = {"title": title}
+                page: dict = {"title": title}
                 if arts or subs:                      # categoría vacía: MediaWiki omite categoryinfo
                     page["categoryinfo"] = {"pages": len(arts), "subcats": len(subs)}
                 pages.append(page)

@@ -38,3 +38,7 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src", "scripts"]
 addopts = ""
+
+[tool.pyrefly]
+search-path = ["src", "scripts"]
+
