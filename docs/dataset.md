@@ -6,9 +6,9 @@ Esta sección documenta el ciclo de vida completo del dataset oficial del proyec
 
 ## 1. Flujo de Trabajo y Comandos CLI
 
-El proceso de creación y control de calidad no es una descarga directa a ciegas, sino un proceso en tres fases consecutivas:
+El proceso de creación y control de calidad no es una descarga directa a ciegas, sino un proceso en tres fases consecutivas.
 
-![alt text](image.png)
+![alt text](assets/flujo-de-trabajo.png)
 
 El orden de ejecución de comandos en la terminal es el siguiente:
 
