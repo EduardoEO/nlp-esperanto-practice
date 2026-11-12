@@ -1,0 +1,10 @@
+# Normalización estricta a LF en el repositorio y en el entorno de desarrollo
+* text eol=lf
+
+# Scripts de Windows requieren obligatoriamente finales de línea CRLF para CMD
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary

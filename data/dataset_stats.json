@@ -1,0 +1,74 @@
+{
+  "generated_utc": "2026-10-22T07:51:38+00:00",
+  "source": "https://eo.wikipedia.org/w/api.php",
+  "seed": 42,
+  "paragraphs_per_class": {
+    "fiziko": 500,
+    "biologio": 500,
+    "kemio": 500
+  },
+  "articles_per_class": {
+    "fiziko": 136,
+    "biologio": 172,
+    "kemio": 156
+  },
+  "config": {
+    "_comment": "Temáticas: Ciencia (física / biología / química). Categorías verificadas en Vikipedio. Las exclusiones salen de `build_dataset.py subcats`: biografías, esbozos ('Ĝermoj pri ...') y subcategorías que no son ciencia en sí (magia, ficción, premios, libros...). Revisad las 'dudosas' con el ruido medido. El profesor debe validar las temáticas.",
+    "wiki_api": "https://eo.wikipedia.org/w/api.php",
+    "category_prefix": "Kategorio:",
+    "seed": 42,
+    "request_delay_seconds": 0.2,
+    "min_chars": 120,
+    "max_chars": 1500,
+    "min_words": 15,
+    "max_paragraphs_per_article": 6,
+    "target_paragraphs_per_class": 500,
+    "max_category_depth": 2,
+    "max_candidates_per_class": 3000,
+    "balance_classes": true,
+    "exclude_subcategories": [
+      "Fizikistoj",
+      "Biologoj",
+      "Kemiistoj",
+      "Sciencistoj",
+      "Nobelpremiitoj",
+      "Ĝermoj pri fiziko",
+      "Ĝermoj pri biologio",
+      "Ĝermoj pri kemio",
+      "Magio",
+      "Fiziko en fikcio",
+      "Fizikaj premioj",
+      "Fizikaj organizaĵoj",
+      "Studfakoj de fiziko",
+      "Historio de fiziko",
+      "Filozofio de fiziko",
+      "Tempo en fiziko",
+      "Biologia literaturo",
+      "Biologiaj datumbazoj",
+      "Bioetiko",
+      "Endemiismoj",
+      "Artikoloj sen biologia klasado",
+      "Ŝablono:Kemio",
+      "Elektro",
+      "Nutrado",
+      "Kemio en socio"
+    ],
+    "classes": {
+      "fiziko": [
+        "Fiziko"
+      ],
+      "biologio": [
+        "Biologio"
+      ],
+      "kemio": [
+        "Kemio"
+      ]
+    },
+    "class_depth": {
+      "fiziko": 1,
+      "biologio": 1,
+      "kemio": 2
+    },
+    "_comment_class_depth": "Profundidad de subcategorías por clase. Con 2, fiziko arrastraba artículos ajenos (p. ej. 'Lerneja paŭzo'); kemio necesita 2 porque sin esbozos tiene pocos artículos directos."
+  }
+}
