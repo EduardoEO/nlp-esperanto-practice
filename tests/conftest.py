@@ -7,6 +7,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 @pytest.fixture(scope="session")
 def nlp():
+    """Devuelve un pipeline de Esperanto compartido durante la sesión de pruebas."""
     import esperanto_nlp
     return esperanto_nlp.load()
 
