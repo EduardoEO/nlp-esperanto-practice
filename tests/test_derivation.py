@@ -50,7 +50,8 @@ def test_pipeline_fills_root_and_affixes():
 
 def test_sklearn_root_mode_merges_word_family():
     pytest.importorskip("sklearn")
-    from esperanto_nlp.sklearn_wrapper import EsperantoPreprocessor
+    wrapper = pytest.importorskip("esperanto_nlp.sklearn_wrapper")
+    EsperantoPreprocessor = wrapper.EsperantoPreprocessor
     out = EsperantoPreprocessor(feature="root", drop_stop=True).fit_transform(
         ["La fizikisto laboras.", "Fiziko estas scienco.", "Fizikaj leĝoj."])
     # fizikisto / fiziko / fizika -> comparten raíz "fizik" (fiziko y fizika ya la comparten por lema/stem)
