@@ -14,6 +14,7 @@ class Tagger:
     name = "tagger"
 
     def __call__(self, doc: Doc) -> Doc:
+        """Asigna categoría y rasgos gramaticales en el documento y lo devuelve."""
         for tok in doc:
             if tok.kind == "punct":
                 tok.pos_, tok.stem_ = "PUNCT", tok.text
