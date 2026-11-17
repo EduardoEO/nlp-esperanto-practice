@@ -76,6 +76,7 @@ def mostrar(nlp, texto: str, explicar: bool = True) -> None:
 
 
 def main() -> int:
+    """Analiza frases de los argumentos, de un archivo UTF-8 o de la entrada interactiva."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("text", nargs="*", help="frase(s) a analizar")
     ap.add_argument("-f", "--file", type=Path, help="archivo UTF-8 con una frase por línea")
