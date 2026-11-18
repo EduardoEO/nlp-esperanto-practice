@@ -1,0 +1,47 @@
+name: CI
+
+# Las pruebas unitarias se ejecutan automáticamente en CADA push (y en cada PR).
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Instalar la librería y dependencias de test
+        run: pip install -e ".[test,etl]"
+        # Cuando se suba la Fase 3 (cuaderno), ampliar a:
+        # run: pip install -e ".[test,notebook,etl,runner]"
+      - name: Pruebas unitarias
+        run: pytest --cov=esperanto_nlp --cov-report=term-missing
+      # Descomentar al subir la Fase 3 (notebooks/, scripts/run_notebook.py, sklearn_wrapper.py):
+      # - name: Ejecutar cuaderno completo sin red
+      #   if: matrix.python-version == '3.12'
+      #   run: python scripts/run_notebook.py --offline
+      - name: Validar contrato de datos (si ya existe el dataset)
+        run: |
+          if [ -f data/dataset.csv ]; then python scripts/validate_dataset.py data/dataset.csv; \
+          else echo "data/dataset.csv todavía no existe: se omite"; fi
+
+  # Descomentar al subir docs/index.md y src/esperanto_nlp/sklearn_wrapper.py (Fase 3):
+  # docs:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.12"
+  #         cache: pip
+  #     - run: pip install ".[docs]"
+  #     - name: La documentación debe compilar sin avisos
+  #       run: mkdocs build --strict
