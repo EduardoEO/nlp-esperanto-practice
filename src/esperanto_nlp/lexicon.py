@@ -16,6 +16,15 @@ from typing import Dict, List, Mapping, NamedTuple, Optional
 
 
 class LexEntry(NamedTuple):
+    """Entrada inmutable del léxico de palabras cerradas del Esperanto.
+
+    Attributes:
+        pos: Etiqueta gramatical universal (p. ej. ``PRON``, ``ADP``, ``DET``).
+        lemma: Lema canónico de diccionario.
+        feats: Mapa inmutable de rasgos morfológicos (p. ej. ``Number``, ``Case``).
+        stop: Indica si la forma se considera palabra vacía (*stop-word*).
+    """
+
     pos: str
     lemma: str
     feats: Mapping[str, str]
@@ -26,6 +35,18 @@ LEXICON: Dict[str, LexEntry] = {}
 
 
 def _reg(form: str, pos: str, lemma: str, feats: Optional[dict] = None, stop: bool = False) -> None:
+    """Registra una forma superficial en ``LEXICON`` validando que no esté duplicada.
+
+    Args:
+        form: Forma normalizada de la palabra tal como aparece en el texto.
+        pos: Etiqueta POS universal.
+        lemma: Lema canónico asociado.
+        feats: Diccionario opcional de rasgos morfológicos.
+        stop: Si es ``True``, incluye la palabra en ``DEFAULT_STOPWORDS``.
+
+    Raises:
+        ValueError: Si ``form`` ya había sido registrada previamente.
+    """
     if form in LEXICON:
         raise ValueError(f"Forma duplicada en el léxico: {form!r}")
     LEXICON[form] = LexEntry(pos, lemma, MappingProxyType(dict(feats or {})), stop)
@@ -108,6 +129,12 @@ def is_compound_numeral(word: str) -> bool:
 
     Programación dinámica: ``ok[i]`` es cierto si el prefijo de longitud ``i`` se puede
     partir en raíces numerales.
+
+    Args:
+        word: Palabra normalizada a evaluar.
+
+    Returns:
+        bool: ``True`` si toda la cadena se descompone en raíces de ``NUMERAL_ROOTS``.
     """
     if not word:
         return False
