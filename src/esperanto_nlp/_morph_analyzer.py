@@ -1,9 +1,9 @@
 """Analizador morfológico (módulo interno): el corazón de la librería.
 
-``analyze(palabra)`` devuelve ``(raíz, POS, lema, rasgos)``. El *Tagger* y el
+``analyze(palabra)`` devuelve ``(root, pos, lemma, feats, base, affixes)``. El *Tagger* y el
 *Lemmatizer* son clases finas que solo llaman a esta función; así las reglas del
-Esperanto viven en **un único sitio**. Los afijos (mal-, -ej-, -ist-...) se separan en ``_derivation.py`` (Opción B) y
-se devuelven en ``base`` y ``affixes``.
+Esperanto viven en **un único sitio**. Los afijos derivativos (``mal-``, ``-ej-``,
+``-ist-``...) se separan en ``_derivation.py`` y se devuelven en ``base`` y ``affixes``.
 
 Orden de decisión (la primera regla que encaja gana):
 
@@ -33,11 +33,15 @@ from .normalization import ESPERANTO_ALPHABET, VOWELS, normalize_word
 
 
 class MorphAnalysis(NamedTuple):
-    """Resultado del análisis: ``(root, pos, lemma, feats, base, affixes)``.
+    """Resultado inmutable del análisis morfológico de una palabra.
 
-    * ``root``: raíz sin terminaciones gramaticales (``hundojn -> hund``).
-    * ``base``: raíz sin **afijos derivativos** (``lernejo -> lern``) -> Opción B.
-    * ``affixes``: afijos separados, p. ej. ``("mal-", "-ig")``.
+    Attributes:
+        root: Raíz flexiva sin terminaciones gramaticales (``hundojn -> hund``).
+        pos: Etiqueta gramatical universal (POS).
+        lemma: Lema canónico de diccionario.
+        feats: Mapa inmutable de rasgos morfológicos.
+        base: Raíz primaria tras separar afijos derivativos (``lernejo -> lern``).
+        affixes: Tupla ordenada de afijos separados (p. ej. ``("mal-", "-ig")``).
     """
 
     root: str
@@ -50,6 +54,18 @@ class MorphAnalysis(NamedTuple):
 
 def _mk(root: str, pos: str, lemma: str, feats: Optional[Mapping[str, str]] = None,
         *, derive: bool = False) -> MorphAnalysis:
+    """Construye un ``MorphAnalysis`` calculando opcionalmente la derivación de afijos.
+
+    Args:
+        root: Raíz flexiva de la palabra.
+        pos: Etiqueta POS asignada.
+        lemma: Lema canónico resultante.
+        feats: Diccionario opcional de rasgos morfológicos.
+        derive: Si es ``True``, invoca ``decompose`` sobre ``root`` para aislar ``base`` y ``affixes``.
+
+    Returns:
+        MorphAnalysis: Registro inmutable listo para devolver y almacenar en caché.
+    """
     base, affixes = root, ()
     if derive:
         pre, base, suf = decompose(root)
@@ -83,11 +99,29 @@ _NON_PARTICIPLE_STEMS = frozenset({
 
 
 def _valid_stem(stem: str) -> bool:
-    """Una raíz razonable tiene ≥2 letras y al menos una vocal (descarta k-at-o, ŝt-at-o)."""
+    """Comprueba que una raíz sea válida (≥ 2 letras y al menos una vocal).
+
+    Descarta falsas segmentaciones demasiado cortas como ``k-at-o`` o ``ŝt-at-o``.
+
+    Args:
+        stem: Subcadena candidata a raíz flexiva.
+
+    Returns:
+        bool: ``True`` si cumple los requisitos mínimos.
+    """
     return len(stem) >= 2 and any(c in VOWELS for c in stem)
 
 
 def _number_feats(pl: str, acc: str) -> dict:
+    """Construye el diccionario de rasgos de número y caso a partir de ``-j`` y ``-n``.
+
+    Args:
+        pl: Marca de plural (``"j"`` o ``""``).
+        acc: Marca de acusativo (``"n"`` o ``""``).
+
+    Returns:
+        dict: Mapa con ``Number="Plur"`` y/o ``Case="Acc"`` según corresponda.
+    """
     feats = {}
     if pl:
         feats["Number"] = "Plur"
@@ -97,7 +131,17 @@ def _number_feats(pl: str, acc: str) -> dict:
 
 
 def _regular(norm: str) -> Optional[MorphAnalysis]:
-    """Aplica las terminaciones regulares. ``None`` si no encaja ninguna."""
+    """Aplica las reglas de terminaciones regulares del Esperanto.
+
+    Evalúa en orden: participios, verbos, sustantivos (``-o``), adjetivos (``-a``)
+    y adverbios (``-e``).
+
+    Args:
+        norm: Palabra normalizada en NFC y minúsculas.
+
+    Returns:
+        Optional[MorphAnalysis]: Resultado del análisis si encaja alguna regla, o ``None``.
+    """
     # 1) Participios: -ant-/-int-/-ont- (activos), -at-/-it-/-ot- (pasivos) + o/a/e.
     m = _PARTICIPLE_RE.fullmatch(norm)
     if m and _valid_stem(m["stem"]) and m["stem"] not in _NON_PARTICIPLE_STEMS \
@@ -127,7 +171,14 @@ def _regular(norm: str) -> Optional[MorphAnalysis]:
 
 
 def _proper_lemma(text: str) -> str:
-    """Lema de un nombre propio: quita -j/-n de los nombres en -o (Parizon -> Parizo)."""
+    """Obtiene el lema de un nombre propio quitando ``-j``/``-n`` en nombres en ``-o``.
+
+    Args:
+        text: Forma superficial del nombre propio (p. ej. ``"Parizon"``).
+
+    Returns:
+        str: Lema conservando la capitalización (p. ej. ``"Parizo"``).
+    """
     if text.endswith("ojn"):
         return text[:-2]
     if text.endswith(("oj", "on")):
@@ -136,6 +187,14 @@ def _proper_lemma(text: str) -> str:
 
 
 def _propn(text: str) -> MorphAnalysis:
+    """Construye el análisis de un nombre propio (``PROPN``) con sus rasgos flexivos.
+
+    Args:
+        text: Forma original del nombre propio tal como aparece en el texto.
+
+    Returns:
+        MorphAnalysis: Resultado con etiqueta ``PROPN``, lema capitalizado y raíz en minúscula.
+    """
     feats = {}
     if text.endswith("ojn"):
         feats = {"Number": "Plur", "Case": "Acc"}
@@ -152,6 +211,15 @@ def _propn(text: str) -> MorphAnalysis:
 
 @lru_cache(maxsize=200_000)
 def _analyze(word: str, sentence_start: bool) -> MorphAnalysis:
+    """Implementación cacheada del árbol de decisión morfológica.
+
+    Args:
+        word: Palabra tal como aparece en el texto (conservando mayúsculas).
+        sentence_start: ``True`` si ocupa la primera posición de la oración.
+
+    Returns:
+        MorphAnalysis: Análisis morfológico inmutable almacenado en caché LRU.
+    """
     norm = normalize_word(word)
     if not norm:
         return _mk("", "X", "")
@@ -208,6 +276,10 @@ def analyze(word: str, *, sentence_start: bool = False) -> MorphAnalysis:
             importante: distinguen nombres propios).
         sentence_start: ``True`` si es la primera palabra de una frase (entonces la
             mayúscula no indica nombre propio).
+
+    Returns:
+        MorphAnalysis: Resultado completo con ``root``, ``pos``, ``lemma``,
+            ``feats``, ``base`` y ``affixes``.
 
     >>> a = analyze("malbonigoj")
     >>> (a.root, a.base, a.lemma, a.affixes)
