@@ -28,17 +28,26 @@ _UX_RE = re.compile(r"(?<=[aeiouAEIOU])([uU])[xX]")
 
 
 def _x_replace(match: "re.Match[str]") -> str:
+    """Sustituye un dígrafo del sistema-x (cx, gx, hx, jx, sx) conservando mayúsculas."""
     base = match.group(1)
     accented = _X_TO_ACCENT[base.lower()]
     return accented.upper() if base.isupper() else accented
 
 
 def _ux_replace(match: "re.Match[str]") -> str:
+    """Sustituye 'ux' tras vocal por 'ŭ' o 'Ŭ' conservando la capitalización."""
     return "Ŭ" if match.group(1).isupper() else "ŭ"
 
 
 def normalize_text(text: str, *, x_system: bool = True) -> str:
-    """Devuelve ``text`` en NFC y (opcionalmente) con el sistema-x convertido.
+    """Devuelve ``text`` normalizado en Unicode NFC y con el sistema-x convertido.
+
+    Args:
+        text: Cadena de entrada en Esperanto (puede contener acentos combinados o sistema-x).
+        x_system: Si es ``True``, convierte dígrafos ``cx, gx, hx, jx, sx`` y ``ux`` tras vocal.
+
+    Returns:
+        str: Texto normalizado en forma NFC.
 
     >>> normalize_text("Cxu vi parolas Esperanton? Mi scias, ke jes.")
     'Ĉu vi parolas Esperanton? Mi scias, ke jes.'
@@ -51,8 +60,15 @@ def normalize_text(text: str, *, x_system: bool = True) -> str:
 
 
 def normalize_word(word: str, *, x_system: bool = True) -> str:
-    """Normaliza una palabra y la pasa a minúsculas (``casefold``).
+    """Normaliza una palabra y la pasa a minúsculas mediante ``casefold``.
 
-    Es la forma que usan el analizador morfológico y las stop-words para comparar.
+    Es la forma canónica que usan el analizador morfológico y las stop-words para comparar.
+
+    Args:
+        word: Palabra o token individual a normalizar.
+        x_system: Si es ``True``, aplica conversión del sistema-x antes de pasar a minúsculas.
+
+    Returns:
+        str: Palabra normalizada en NFC y minúsculas.
     """
     return normalize_text(word, x_system=x_system).casefold()

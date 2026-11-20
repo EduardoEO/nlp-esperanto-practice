@@ -26,7 +26,7 @@ class Token:
         norm_: forma normalizada (NFC, sistema-x convertido, minúsculas).
         lemma_: forma canónica (``hundojn -> hundo``, ``kuris -> kuri``).
         stem_: raíz sin terminaciones (``hundojn -> hund``).
-        root_: raíz sin afijos derivativos (``lernejo -> lern``, Opción B).
+        root_: raíz primaria sin afijos derivativos (``lernejo -> lern``).
         affixes: afijos separados (``("mal-", "-ig")``).
         pos_: categoría gramatical (etiquetas Universal POS: NOUN, VERB, ADJ...).
         morph: rasgos morfológicos, p. ej. ``{"Number": "Plur", "Case": "Acc"}``.
@@ -92,7 +92,13 @@ class Token:
 
 
 class Span:
-    """Un trozo contiguo de un ``Doc`` (por ejemplo, una frase)."""
+    """Un trozo contiguo de un ``Doc`` (por ejemplo, una frase).
+
+    Attributes:
+        doc: Documento ``Doc`` padre al que pertenece el segmento.
+        start: Índice del primer token incluido.
+        end: Índice de parada (exclusivo), siguiendo la convención de slices en Python.
+    """
 
     def __init__(self, doc: "Doc", start: int, end: int) -> None:
         self.doc = doc
@@ -126,10 +132,14 @@ class Span:
 class Doc:
     """Resultado de procesar un texto: el texto original y su lista de ``Token``.
 
+    Attributes:
+        text: Texto original completo sin modificar.
+        tokens: Lista ordenada de objetos ``Token`` extraídos del texto.
+
     Ejemplo::
 
         doc = esperanto_nlp.load()("La hundo kuras.")
-        len(doc)           # 5 tokens: La, hundo, kuras, y el punto
+        len(doc)           # 4 tokens: La, hundo, kuras, y el punto
         doc[1].lemma_      # "hundo"
     """
 
@@ -175,10 +185,21 @@ class Doc:
         drop_num: bool = False,
         keep_pos: Optional[Iterable[str]] = None,
     ) -> List[str]:
-        """Lista de un atributo de cada token, con filtros opcionales.
+        """Devuelve una lista con el atributo pedido de cada token, con filtros opcionales.
 
         Es el puente hacia el aprendizaje automático: ``doc.to_list("lemma_",
-        drop_stop=True, drop_punct=True)`` da las "palabras con contenido".
+        drop_stop=True, drop_punct=True)`` devuelve solo las palabras con contenido.
+
+        Args:
+            attr: Nombre del atributo del ``Token`` a extraer (p. ej. ``"lemma_"``,
+                ``"stem_"``, ``"root_"``, ``"norm_"``, ``"text"``).
+            drop_stop: Si es ``True``, omite tokens marcados con ``is_stop``.
+            drop_punct: Si es ``True``, omite signos de puntuación.
+            drop_num: Si es ``True``, omite tokens numéricos.
+            keep_pos: Colección opcional de etiquetas POS permitidas (p. ej. ``{"NOUN", "VERB"}``).
+
+        Returns:
+            List[str]: Secuencia de cadenas filtrada lista para vectorizar.
         """
         keep = set(keep_pos) if keep_pos is not None else None
         out: List[str] = []
@@ -195,7 +216,13 @@ class Doc:
         return out
 
     def to_dicts(self) -> List[Dict[str, object]]:
-        """Una fila por token (útil con ``pandas.DataFrame(doc.to_dicts())``)."""
+        """Serializa el documento como una lista de diccionarios (uno por token).
+
+        Útil para inspección tabular directa con ``pandas.DataFrame(doc.to_dicts())``.
+
+        Returns:
+            List[Dict[str, object]]: Lista de diccionarios con los atributos de cada token.
+        """
         return [
             {
                 "text": t.text, "idx": t.idx, "norm": t.norm_, "lemma": t.lemma_,

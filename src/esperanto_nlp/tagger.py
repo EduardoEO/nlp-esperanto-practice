@@ -11,10 +11,23 @@ from .containers import Doc
 
 
 class Tagger:
+    """Componente del pipeline que asigna categoría POS, raíz flexiva y rasgos morfológicos.
+
+    Attributes:
+        name: Nombre identificador del componente en el pipeline (``"tagger"``).
+    """
+
     name = "tagger"
 
     def __call__(self, doc: Doc) -> Doc:
-        """Asigna categoría y rasgos gramaticales en el documento y lo devuelve."""
+        """Asigna ``pos_``, ``stem_`` y ``morph`` a cada token del documento.
+
+        Args:
+            doc: Documento ``Doc`` previamente tokenizado.
+
+        Returns:
+            Doc: El mismo documento ``Doc`` modificado in situ con las etiquetas asignadas.
+        """
         for tok in doc:
             if tok.kind == "punct":
                 tok.pos_, tok.stem_ = "PUNCT", tok.text

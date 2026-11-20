@@ -1,23 +1,23 @@
-"""Derivación (Opción B): separar prefijos y sufijos de una raíz.
+"""Descomposición derivativa de afijos en Esperanto (extracción de raíz primaria).
+
+Separa prefijos y sufijos derivativos de una raíz flexiva (``stem``) para reducir
+la dispersión léxica (*sparsity*) en tareas de clasificación y minería de textos:
 
 ``decompose("malbonig")`` -> ``(("mal",), "bon", ("ig",))``
 
-Idea: en Esperanto se pueden **construir palabras** pegando afijos a una raíz
-(``lern-ej-o`` = "lugar donde se aprende"). Si quitamos esos afijos, familias de palabras
-como ``lerni / lernejo / lernanto`` comparten la raíz ``lern`` y el clasificador ve un
-vocabulario más pequeño (menos *sparsity*).
+En Esperanto se forman familias de palabras combinando afijos sobre una raíz común
+(``lern-ej-o`` = "lugar donde se aprende"). Al aislar la raíz primaria, formas como
+``lerni``, ``lernejo`` y ``lernanto`` convergen en la raíz ``lern``.
 
-PERO sin un diccionario de raíces es imposible acertar siempre: no sabemos si ``-ul`` en
-``molekulo`` es el sufijo "persona" (``riĉulo``) o parte de la raíz. Por eso:
+Sin un diccionario completo de raíces, ciertos sufijos coinciden con terminaciones
+léxicas nativas (p. ej. ``-ul`` en ``molekulo`` o ``-id`` en ``oksido``). Para evitar
+falsas segmentaciones sobre vocabulario científico y general:
 
-* Solo se separan sufijos **seguros** en el vocabulario científico de la práctica.
-  Se excluyen a propósito ``-ul -ar -ad -id -il -et -em -an -in`` porque rompen palabras
-  como molekulo, polara, oksido, planeto, sistemo, vitamino... (ver docs/decisiones-diseno.md).
-* La raíz resultante debe tener ≥ 3 letras y alguna vocal.
-* Hay una lista de excepciones (``NO_SPLIT``) para los falsos positivos conocidos.
-
-Es una heurística **mejorable**: ampliarla con evidencia (usando el dataset) es una de las
-tareas propuestas al equipo.
+* Solo se separan afijos de alta precisión (``SUFFIXES`` y ``PREFIXES``), excluyendo
+  terminaciones ambiguas como ``-ul``, ``-ar``, ``-ad``, ``-id``, ``-il``, ``-et``,
+  ``-em``, ``-an`` o ``-in`` (salvo ``-in`` tras ``-ist``, como en ``instruistino``).
+* La raíz residual debe conservar al menos 3 caracteres y una vocal.
+* La lista ``NO_SPLIT`` protege raíces conocidas que coinciden superficialmente con afijos.
 """
 from __future__ import annotations
 
@@ -43,12 +43,26 @@ NO_SPLIT = frozenset({
 
 
 def _ok(rest: str) -> bool:
-    """Una raíz restante es aceptable si tiene ≥3 letras y alguna vocal."""
+    """Comprueba si la raíz residual es válida tras recortar un afijo.
+
+    Args:
+        rest: Subcadena candidata a raíz residual.
+
+    Returns:
+        bool: ``True`` si tiene al menos 3 caracteres y contiene alguna vocal.
+    """
     return len(rest) >= 3 and any(c in VOWELS for c in rest)
 
 
 def decompose(stem: str) -> Tuple[Tuple[str, ...], str, Tuple[str, ...]]:
-    """Separa ``stem`` en ``(prefijos, raíz, sufijos)``.
+    """Separa ``stem`` en una tupla ``(prefijos, raíz, sufijos)``.
+
+    Args:
+        stem: Raíz flexiva ya desprovista de terminaciones gramaticales.
+
+    Returns:
+        Tuple[Tuple[str, ...], str, Tuple[str, ...]]: Tupla con la secuencia de
+            prefijos extraídos, la raíz primaria resultante y los sufijos en orden.
 
     >>> decompose("lernej")
     ((), 'lern', ('ej',))

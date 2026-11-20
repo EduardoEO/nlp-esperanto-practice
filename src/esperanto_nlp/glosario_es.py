@@ -1,22 +1,22 @@
-"""Ayudas en español para entender las salidas de la librería.
+"""Ayudas y explicabilidad en español para interpretar las salidas de la librería.
 
-Contexto: el equipo y el profesor leen español, pero los textos del dataset están en
-Esperanto. Este módulo traduce al español lo que **no** es texto del corpus: categorías
-gramaticales, terminaciones, afijos y un glosario orientativo de palabras.
+Traduce al español los elementos estructurales del análisis lingüístico: categorías
+gramaticales (POS), rasgos morfológicos, terminaciones, afijos derivativos y un
+glosario orientativo de palabras frecuentes.
 
     >>> from esperanto_nlp.glosario_es import glosa, pos_es
     >>> glosa("kaj"), pos_es("NOUN")
     ('y', 'sustantivo')
 
-Límites (importante para la defensa):
+Alcance y límites:
 
-* ``GLOSARIO`` NO es un diccionario. Cubre las palabras gramaticales de la librería
-  (artículo, pronombres, preposiciones, conjunciones, correlativos, numerales...) y un
-  vocabulario científico básico escrito a mano. Si una palabra no está, simplemente no se
-  traduce: nunca se inventa un significado.
-* Es una ayuda para leer resultados, no forma parte del análisis lingüístico ni del modelo.
-* Conviene contrastar las glosas con un diccionario (p. ej. el PIV o Vikipedio) antes de
-  citarlas como definitivas.
+* ``GLOSARIO`` NO es un diccionario completo: cubre las clases gramaticales cerradas de
+  la librería (artículo, pronombres, preposiciones, conjunciones, correlativos, numerales)
+  y un vocabulario científico básico. Si una palabra no figura en él, no se traduce.
+* Es una capa auxiliar de visualización e interpretación: no participa en el análisis
+  morfológico ni en los modelos de clasificación.
+* Conviene contrastar las glosas con diccionarios de referencia (p. ej. PIV o Vikipedio)
+  antes de tomarlas como definiciones exhaustivas.
 """
 from __future__ import annotations
 
@@ -204,26 +204,53 @@ for _d in (_GRAMATICALES, _CORRELATIVOS, _CIENCIA):
 # Funciones públicas
 # --------------------------------------------------------------------------------------
 def glosa(lema: str) -> Optional[str]:
-    """Significado orientativo de ``lema`` en español, o ``None`` si no está en el glosario."""
+    """Devuelve el significado orientativo de ``lema`` en español.
+
+    Args:
+        lema: Lema canónico en Esperanto a consultar.
+
+    Returns:
+        Optional[str]: Glosa en español si existe en ``GLOSARIO``, o ``None``.
+    """
     return GLOSARIO.get((lema or "").lower())
 
 
 def pos_es(pos: str) -> str:
-    """Nombre en español de una etiqueta POS (``NOUN`` -> ``sustantivo``)."""
+    """Traduce una etiqueta POS universal al español (p. ej. ``NOUN`` -> ``sustantivo``).
+
+    Args:
+        pos: Etiqueta gramatical Universal POS.
+
+    Returns:
+        str: Descripción en español o el propio código ``pos`` si no está mapeado.
+    """
     return POS_ES.get(pos, pos)
 
 
 def feats_es(feats: Optional[Mapping[str, str]]) -> str:
-    """Rasgos morfológicos en español: ``{'Number': 'Plur'}`` -> ``plural``."""
+    """Formatea un mapa de rasgos morfológicos en texto legible en español.
+
+    Args:
+        feats: Diccionario de rasgos ``{rasgo: valor}`` (``token.morph``).
+
+    Returns:
+        str: Cadena separada por comas con las traducciones (p. ej. ``"plural, acusativo (-n)"``).
+    """
     out = [FEATS_ES.get((k, v), f"{k}={v}") for k, v in (feats or {}).items()]
     return ", ".join(out)
 
 
 def con_glosa(termino: str) -> str:
-    """``especie`` entre paréntesis tras cada palabra conocida; las desconocidas quedan igual.
+    """Añade la traducción entre paréntesis tras cada palabra conocida de ``termino``.
 
-    Admite términos de varias palabras (los n-gramas del modelo): ``"specio homo"`` ->
-    ``"specio (especie) homo (ser humano)"``.
+    Admite términos de varias palabras (n-gramas): ``"specio homo"`` ->
+    ``"specio (especie) homo (ser humano)"``. Las palabras desconocidas quedan igual.
+
+    Args:
+        termino: Palabra o n-grama en Esperanto.
+
+    Returns:
+        str: Cadena anotada con glosas entre paréntesis sin anidamientos.
     """
     partes = []
     for palabra in str(termino).split():
@@ -235,7 +262,14 @@ def con_glosa(termino: str) -> str:
 
 
 def _terminacion(resto: str) -> List[Tuple[str, str]]:
-    """Explica la terminación gramatical que queda tras la raíz (``oj`` -> -o sustantivo, -j plural)."""
+    """Descompone y explica en español la terminación gramatical tras la raíz flexiva.
+
+    Args:
+        resto: Sufijo flexivo restante (p. ej. ``"oj"``, ``"antojn"``, ``"is"``).
+
+    Returns:
+        List[Tuple[str, str]]: Pares ``(morfema, explicación)``.
+    """
     if not resto:
         return []
     if resto in VERBOS_ES:
@@ -256,10 +290,16 @@ def _terminacion(resto: str) -> List[Tuple[str, str]]:
 
 
 def descomponer(token: Any) -> List[Tuple[str, str]]:
-    """Trocea una palabra en ``[(pieza, significado), ...]`` usando el análisis de la librería.
+    """Trocea una palabra en ``[(pieza, significado), ...]`` usando su análisis morfológico.
 
     Ejemplo (``fizikistoj``): ``[('fizik', 'raíz'), ('-ist', 'persona que se dedica...'),
-    ('-o', 'sustantivo'), ('-j', 'plural')]``. Devuelve ``[]`` si no es una palabra.
+    ('-o', 'sustantivo'), ('-j', 'plural')]``.
+
+    Args:
+        token: Objeto ``Token`` anotado por el pipeline.
+
+    Returns:
+        List[Tuple[str, str]]: Secuencia de morfemas con su explicación, o ``[]`` si no es palabra.
     """
     if getattr(token, "kind", "word") != "word":
         return []
@@ -280,7 +320,14 @@ def descomponer(token: Any) -> List[Tuple[str, str]]:
 
 
 def explicar_token(token: Any) -> str:
-    """Explicación en español de un ``Token``, en una línea."""
+    """Genera una explicación morfológica legible en español de un ``Token``.
+
+    Args:
+        token: Objeto ``Token`` anotado por el pipeline.
+
+    Returns:
+        str: Descripción en una línea con categoría, glosa, estructura y si es stop-word.
+    """
     kind = getattr(token, "kind", "word")
     if kind == "punct":
         return "signo de puntuación"
@@ -307,10 +354,18 @@ def explicar_token(token: Any) -> str:
 
 
 def glosas_de_parrafo(texto: str, maximo: int = 6, nlp: Any = None) -> str:
-    """Pistas en español de un párrafo en Esperanto: sus palabras conocidas con su glosa.
+    """Extrae pistas en español con las palabras conocidas de un párrafo en Esperanto.
 
-    No es una traducción: solo lista (hasta ``maximo``) lemas del glosario que aparecen en el
-    párrafo, sin repetir y sin palabras gramaticales muy frecuentes.
+    No es una traducción: lista hasta ``maximo`` lemas del glosario que aparecen en el
+    párrafo, sin repetir y excluyendo stop-words y nombres propios.
+
+    Args:
+        texto: Párrafo en Esperanto a inspeccionar.
+        maximo: Número máximo de glosas a devolver.
+        nlp: Instancia opcional de ``EsperantoNLP`` (si es ``None``, llama a ``load()``).
+
+    Returns:
+        str: Pares ``lema = glosa`` separados por comas.
     """
     if nlp is None:
         from .pipeline import load
@@ -326,5 +381,12 @@ def glosas_de_parrafo(texto: str, maximo: int = 6, nlp: Any = None) -> str:
 
 
 def glosar_lista(palabras: Iterable[str]) -> str:
-    """``con_glosa`` aplicado a una lista, separada por comas."""
+    """Aplica ``con_glosa`` a cada elemento de una colección y los une con comas.
+
+    Args:
+        palabras: Iterable de palabras o n-gramas en Esperanto.
+
+    Returns:
+        str: Elementos anotados separados por comas.
+    """
     return ", ".join(con_glosa(p) for p in palabras)
