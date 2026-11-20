@@ -1,4 +1,4 @@
-"""Tokenizador basado en expresiones regulares (Opción A) + marcado de frases.
+"""Tokenizador ortográfico basado en expresiones regulares y segmentación de frases.
 
 Idea clave: **no modificamos el texto original**. Cada ``Token`` guarda su ``text``
 tal cual y su posición (``idx``). La versión normalizada (sistema-x, NFC, minúsculas)
@@ -41,7 +41,17 @@ _ABBREVIATIONS = frozenset({"ekz", "vd", "ktp", "ks", "kp", "pp", "ĝen", "fr", 
 
 
 def _period_ends_sentence(tokens: List[Token], i: int) -> bool:
-    """Decide si el punto ``tokens[i]`` cierra una frase."""
+    """Decide si el punto ``tokens[i]`` cierra una frase.
+
+    Evita cortar tras iniciales sueltas (``L. L. Zamenhof``) o abreviaturas conocidas.
+
+    Args:
+        tokens: Lista completa de tokens extraídos.
+        i: Índice del token de punto a evaluar.
+
+    Returns:
+        bool: ``True`` si el punto actúa como cierre de oración.
+    """
     if i == 0:
         return False
     prev = tokens[i - 1]
@@ -55,10 +65,13 @@ def _period_ends_sentence(tokens: List[Token], i: int) -> bool:
 
 
 def mark_sentences(tokens: List[Token]) -> None:
-    """Rellena ``is_sent_start`` con reglas simples.
+    """Rellena ``is_sent_start`` sobre la lista de tokens modificándola in situ.
 
     Una frase empieza en el primer token y tras ``. ! ? …`` siempre que el siguiente
     token no empiece en minúscula (``"k.t.p. kaj"`` no corta; ``"Venis. La..."`` sí).
+
+    Args:
+        tokens: Lista de objetos ``Token`` producidos por ``Tokenizer.tokenize``.
     """
     if not tokens:
         return
@@ -90,14 +103,32 @@ def mark_sentences(tokens: List[Token]) -> None:
 
 
 class Tokenizer:
-    """Convierte texto crudo en un ``Doc`` con ``Token`` inicializados."""
+    """Convierte texto crudo en un ``Doc`` con ``Token`` inicializados y frases marcadas.
+
+    Attributes:
+        name: Nombre identificador del componente en el pipeline (``"tokenizer"``).
+        x_system: Indica si se convierten dígrafos del sistema-x en ``token.norm_``.
+    """
 
     name = "tokenizer"
 
     def __init__(self, *, x_system: bool = True) -> None:
+        """Inicializa el tokenizador.
+
+        Args:
+            x_system: Si es ``True``, convierte el sistema-x al calcular ``norm_``.
+        """
         self.x_system = x_system
 
     def tokenize(self, text: str) -> List[Token]:
+        """Segmenta ``text`` en una lista de ``Token`` con ``is_sent_start`` marcado.
+
+        Args:
+            text: Cadena de entrada sin modificar.
+
+        Returns:
+            List[Token]: Lista ordenada de tokens con sus desplazamientos originales.
+        """
         tokens: List[Token] = []
         for m in TOKEN_RE.finditer(text):
             kind = m.lastgroup or "punct"
@@ -111,6 +142,17 @@ class Tokenizer:
         return tokens
 
     def __call__(self, text: str) -> Doc:
+        """Tokeniza ``text`` y lo envuelve en un objeto ``Doc``.
+
+        Args:
+            text: Texto de entrada a procesar.
+
+        Returns:
+            Doc: Documento inicializado con el texto original y sus tokens.
+
+        Raises:
+            TypeError: Si ``text`` no es una instancia de ``str``.
+        """
         if not isinstance(text, str):
             raise TypeError(f"Se esperaba str, se recibió {type(text).__name__}")
         return Doc(text, self.tokenize(text))
