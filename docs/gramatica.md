@@ -22,7 +22,7 @@ variantes en `-n` y `-j`.
 `kato`/`dato`/`ŝtato` (no son participios), `elefanto`, `kandidato` (excepciones), `mi` vs
 infinitivos, `cx → ĉ`, `lux` (no es `lŭ`).
 
-## Afijos derivativos reconocidos (Opción B)
+## Afijos derivativos reconocidos
 Ejemplos comprobados con el código (`analyze(palabra).base` y `.affixes`):
 
 | Afijo | Significado | Ejemplo | `root_` | `affixes` |
@@ -32,8 +32,8 @@ Ejemplos comprobados con el código (`analyze(palabra).base` y `.affixes`):
 | `-ist-` (+`-in-`) | profesión | instruistino | instru | `('-ist', '-in')` |
 | `-ig-` / `-iĝ-` | hacer / volverse | pliigi, ruĝiĝi | pli, ruĝ | `('-ig',)`, `('-iĝ',)` |
 | `-ebl-` / `-ind-` | posible / digno | legebla, ŝatinda | leg, ŝat | `('-ebl',)`, `('-ind',)` |
-| `-aĵ-` / `-ism-` / `-eg-` | cosa concreta / doctrina / aumentativo | manĝaĵo, kapitalismo, grandega | manĝ, kapital, grand | |
+| `-aĵ-` / `-ism-` / `-eg-` / `-ec-` | concreto / doctrina / aumentativo / cualidad | manĝaĵo, kapitalismo, grandega, beleco | manĝ, kapital, grand, bel | `('-aĵ',)`, `('-ism',)`, `('-eg',)`, `('-ec',)` |
 
 Regla de seguridad: la raíz resultante debe tener **al menos 3 letras y una vocal**; si no,
-no se separa (así `reg-` o `lig-` no se rompen). `-ec-` solo se detecta dentro de una palabra
-completa (`beleco → bel`).
+no se separa (así `reg-` o `lig-` no se rompen). Además, `NO_SPLIT` protege raíces que
+coinciden superficialmente con afijos (`ekzist`, `resist`, `koleg`, `malari`).

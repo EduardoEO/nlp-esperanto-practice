@@ -3,15 +3,15 @@
 ## Instalación
 
 ```bash
-pip install git+https://github.com/EduardoEO/nlp-esperanto-practice.git
+pip install git+https://github.com/EduardoEO/nlp_esperanto_practica.git
 # para desarrollo:
-git clone https://github.com/EduardoEO/nlp-esperanto-practice.git
-cd nlp-esperanto-practice
+git clone https://github.com/EduardoEO/nlp_esperanto_practica.git
+cd nlp_esperanto_practica
 pip install -e ".[test,notebook,etl,docs]"
 pytest
 ```
 
-En un cuaderno de Colab: `!pip install git+https://github.com/EduardoEO/nlp-esperanto-practice.git`
+En un cuaderno de Colab: `!pip install git+https://github.com/EduardoEO/nlp_esperanto_practica.git`
 
 ## Uso
 
@@ -31,6 +31,13 @@ doc.to_list("lemma_", drop_stop=True, drop_punct=True)   # lemas con contenido
 ```python
 from esperanto_nlp import analyze
 analyze("hundojn")   # raíz 'hund', NOUN, lema 'hundo', {'Number': 'Plur', 'Case': 'Acc'}
+```
+
+## Inspección interactiva por consola
+
+```bash
+python scripts/probar_frase.py "La fizikistoj mezuris la energion."
+python scripts/probar_frase.py --tecnico "La hundoj kuris."
 ```
 
 ## Con scikit-learn
