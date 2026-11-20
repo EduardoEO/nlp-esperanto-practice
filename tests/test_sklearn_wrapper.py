@@ -1,4 +1,15 @@
-"""Pruebas del puente NLP con scikit-learn, sus representaciones y su serialización."""
+"""Verifica el preprocesamiento que usa el clasificador de Esperanto.
+
+Las pruebas unitarias fijan las salidas de cada representación y del
+filtrado por categoría gramatical. Las de integración usan un CSV pequeño
+para comprobar el flujo completo desde el texto hasta la predicción y su
+compatibilidad con las operaciones de clonado y serialización del modelo.
+
+Uso:
+    python -m pytest tests/test_sklearn_wrapper.py
+
+Si scikit-learn no está instalado, pytest omite este módulo.
+"""
 import csv
 import pickle
 
@@ -15,14 +26,28 @@ from esperanto_nlp.sklearn_wrapper import EsperantoPreprocessor
 
 
 def load_fixture(path):
-    """Lee los textos y sus etiquetas del CSV de prueba en formato text;class."""
+    """Carga los párrafos y sus categorías del corpus de prueba.
+
+    Args:
+        path: Ruta al CSV UTF-8 con columnas ``text`` y ``class``.
+
+    Returns:
+        Una pareja de listas de textos y etiquetas en el orden del CSV.
+    """
     with open(path, encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f, delimiter=";"))
     return [r["text"] for r in rows], [r["class"] for r in rows]
 
 
 def make_pipeline(**prep):
-    """Construye un clasificador reproducible con preprocesamiento NLP y TF-IDF."""
+    """Ensambla el pipeline de integración con una semilla fija.
+
+    Args:
+        **prep: Opciones que se pasan a ``EsperantoPreprocessor``.
+
+    Returns:
+        Pipeline sin entrenar con preprocesamiento, TF-IDF y regresión logística.
+    """
     return Pipeline([
         ("prep", EsperantoPreprocessor(**prep)),
         ("tfidf", TfidfVectorizer(tokenizer=str.split, token_pattern=None, lowercase=False)),
@@ -58,7 +83,12 @@ def test_invalid_feature():
 
 @pytest.mark.parametrize("feature", ["norm", "lemma", "stem"])
 def test_pipeline_learns_fixture(mini_dataset_path, feature):
-    """Verifica el aprendizaje del corpus de prueba y las probabilidades del clasificador."""
+    """Comprueba que la representación se integra con TF-IDF y el clasificador.
+
+    El acierto sobre el corpus de entrenamiento comprueba la integración.
+    También se comprueba la etiqueta de una frase conocida y que las
+    probabilidades predichas sumen uno.
+    """
     X, y = load_fixture(mini_dataset_path)
     pipe = make_pipeline(feature=feature).fit(X, y)
     assert pipe.score(X, y) == 1.0
