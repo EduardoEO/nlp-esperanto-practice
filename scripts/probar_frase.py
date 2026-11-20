@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Analiza frases en Esperanto con nuestra librería y lo explica EN ESPAÑOL.
+"""Analiza frases en Esperanto con ``esperanto_nlp`` y las explica en español por consola.
 
-Requisito del enunciado que cubre (apartado 4.2.1, librería de NLP): tokenizador, lematizador,
-etiquetador gramatical (POS), stop-words y objetos Doc/Token.
+Cubre la inspección interactiva del pipeline lingüístico completo: tokenizador,
+etiquetador gramatical (POS), lematizador, descomposición de afijos y stop-words.
 
 Uso (Windows cmd / PowerShell, macOS, Linux):
 
@@ -33,7 +33,12 @@ LINEA = "=" * 100
 
 
 def mostrar_tecnico(nlp, texto: str) -> None:
-    """Formato original (para quien quiera ver los atributos tal cual los guarda Token)."""
+    """Imprime la tabla técnica con los atributos internos de cada ``Token``.
+
+    Args:
+        nlp: Instancia de ``EsperantoNLP`` cargada.
+        texto: Frase en Esperanto a analizar.
+    """
     doc = nlp(texto)
     print(f"\n>>> {texto}")
     print(f"{'texto':18}{'tipo':8}{'POS':7}{'lema':18}{'stem':14}{'root':12}{'afijos':18}stop")
@@ -44,9 +49,16 @@ def mostrar_tecnico(nlp, texto: str) -> None:
 
 
 def mostrar(nlp, texto: str, explicar: bool = True) -> None:
+    """Muestra el análisis completo de una frase explicado en español.
+
+    Args:
+        nlp: Instancia de ``EsperantoNLP`` cargada.
+        texto: Frase en Esperanto a analizar.
+        explicar: Si es ``True``, añade el desglose morfológico palabra por palabra.
+    """
     doc = nlp(texto)
     print(f"\n{LINEA}")
-    print("REQUISITO 4.2.1 · Librería de NLP en Esperanto (tokenizador + POS + lematizador + stop-words)")
+    print("Librería de NLP en Esperanto (tokenizador + POS + lematizador + stop-words)")
     print(f"FRASE ANALIZADA (texto en Esperanto): {texto}")
     print(LINEA)
     print("Qué ha hecho la librería: 1) separar la frase en palabras y signos (tokenizador); "
@@ -76,7 +88,11 @@ def mostrar(nlp, texto: str, explicar: bool = True) -> None:
 
 
 def main() -> int:
-    """Analiza frases de los argumentos, de un archivo UTF-8 o de la entrada interactiva."""
+    """Analiza frases recibidas por argumentos, archivo UTF-8 o modo interactivo.
+
+    Returns:
+        int: Código de salida ``0`` tras finalizar el análisis.
+    """
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("text", nargs="*", help="frase(s) a analizar")
     ap.add_argument("-f", "--file", type=Path, help="archivo UTF-8 con una frase por línea")
