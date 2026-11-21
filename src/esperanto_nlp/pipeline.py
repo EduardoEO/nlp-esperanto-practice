@@ -7,7 +7,7 @@ una cadena de componentes; cada uno recibe el ``Doc``, lo enriquece y lo devuelv
 """
 from __future__ import annotations
 
-from typing import Callable, Iterable, Iterator, List, Optional
+from typing import Any, Callable, Iterable, Iterator, List, Optional
 
 from .containers import Doc
 from .lemmatizer import Lemmatizer
@@ -104,7 +104,7 @@ class EsperantoNLP:
             yield self(text)
 
 
-def load(**kwargs) -> EsperantoNLP:  # type: ignore[no-untyped-def]
+def load(**kwargs: Any) -> EsperantoNLP:
     """Crea e inicializa el pipeline por defecto: ``nlp = esperanto_nlp.load()``.
 
     Args:

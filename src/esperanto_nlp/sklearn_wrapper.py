@@ -18,7 +18,7 @@ el vectorizador. scikit-learn solo se requiere al importar este módulo.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Iterable, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Tuple
 
 from sklearn.base import BaseEstimator, TransformerMixin
 
@@ -83,7 +83,7 @@ class EsperantoPreprocessor(BaseEstimator, TransformerMixin):
         self.min_len = min_len
         self.x_system = x_system
 
-    def fit(self, X: Iterable[str], y=None) -> "EsperantoPreprocessor":  # noqa: ARG002
+    def fit(self, X: Iterable[str], y: Any = None) -> "EsperantoPreprocessor":  # noqa: ARG002
         """Valida la configuración antes de transformar el corpus.
 
         Args:
