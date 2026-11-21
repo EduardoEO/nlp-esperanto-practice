@@ -11,7 +11,6 @@ Este directorio almacena el corpus oficial en Esperanto extraído de [Vikipedio]
 | **`dataset.csv`** | **Corpus principal (Contrato de Datos).** Contiene **1.500 párrafos** reales y balanceados (**500** de `fiziko`, **500** de `biologio` y **500** de `kemio`) procedentes de **464 artículos** únicos. Codificado en UTF-8 (sin BOM), delimitado por `;` y con cabecera `text;class`. |
 | **`dataset_meta.csv`** | **Metadatos de trazabilidad fila a fila.** Registra para cada fila de `dataset.csv` su índice (`row`), clase (`class`), identificador de página (`article_id`), título (`article_title`), ID de revisión exacta en Wikipedia (`revid`) y huella criptográfica (`text_sha256`). Esencial para agrupar por artículo (`StratifiedGroupKFold`) y evitar fuga de datos (*data leakage*) entre entrenamiento y test. |
 | **`dataset_stats.json`** | **Registro de reproducibilidad.** Documenta la fecha de extracción UTC, la semilla (`seed = 42`), el número de artículos por clase (`fiziko`: 136, `biologio`: 172, `kemio`: 156) y la configuración exacta de `scripts/dataset_config.json` empleada en su generación. |
-| **`noise_sample.csv`** | **Muestra para auditoría de ruido.** Contiene **150 párrafos** (50 por clase) muestreados de forma estratificada para evaluar el ruido por herencia de etiqueta (`0` = informativo de su clase, `1` = genérico/biográfico, `2` = otra temática). |
 | **`fallback_web_text.txt`** | **Texto de respaldo para inferencia web.** Párrafos de reserva en Esperanto que utiliza el cuaderno en la sección de clasificación de páginas web externas (Fase 3) cuando se ejecuta sin conexión (`OFFLINE=True`) o si las fuentes web externas no están disponibles. |
 | **`raw/`** | **Caché local de la API MediaWiki.** Almacena los JSON crudos descargados por `pageid` para evitar peticiones repetidas a Wikipedia. Está excluida del control de versiones en `.gitignore`. |
 
@@ -38,12 +37,13 @@ python scripts/validate_dataset.py data/dataset.csv
 # 2. Calcular la estimación automática de ruido por ausencia de palabras clave
 python scripts/noise_report.py
 
-# 3. Anotar interactivamente la muestra manual o consultar sus métricas
+# 3. Generar una muestra estratificada y auditarla manualmente (opcional)
+python scripts/noise_report.py --sample 50
 python scripts/noise_report.py --annotate
 python scripts/noise_report.py --analyze
 ```
 
-> **Nota sobre reconstrucción:** Si deseas probar el proceso de descarga completa desde cero sin sobrescribir el corpus oficial ni perder anotaciones en `noise_sample.csv`, especifica un directorio de salida alternativo:
+> **Nota sobre reconstrucción:** Si deseas probar el proceso de descarga completa desde cero sin sobrescribir el corpus oficial, especifica un directorio de salida alternativo:
 > ```bash
 > python scripts/build_dataset.py build --out data_nueva
 > ```

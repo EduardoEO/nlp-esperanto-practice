@@ -31,7 +31,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Any, Dict, List, Union
 
 _HTML = re.compile(r"<[^>]+>") # Detecta etiquetas
 _URL = re.compile(r"(?:https?://|www\.)", re.IGNORECASE) # Detecta enlaces
@@ -146,7 +146,7 @@ def validate_csv_text(
     return rep
 
 
-def validate_file(path: Union[str, Path], **kwargs) -> ContractReport:  # type: ignore[no-untyped-def]
+def validate_file(path: Union[str, Path], **kwargs: Any) -> ContractReport:
     """Lee un archivo desde disco y valida su cumplimiento del contrato de datos.
 
     Verifica en primer lugar que la codificación sea UTF-8 estricta sin errores

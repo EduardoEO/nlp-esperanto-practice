@@ -10,5 +10,5 @@ from ._morph_analyzer import MorphAnalysis, analyze
 from .containers import Doc, Span, Token
 from .pipeline import EsperantoNLP, load
 
-__version__ = "0.3.1"
+__version__ = "1.0.0"
 __all__ = ["load", "EsperantoNLP", "Doc", "Span", "Token", "analyze", "MorphAnalysis", "__version__"]

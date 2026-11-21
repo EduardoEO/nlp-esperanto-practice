@@ -3,15 +3,15 @@
 ## Instalación
 
 ```bash
-pip install git+https://github.com/EduardoEO/nlp_esperanto_practica.git
+pip install git+https://github.com/EduardoEO/nlp-esperanto-practice.git
 # para desarrollo:
-git clone https://github.com/EduardoEO/nlp_esperanto_practica.git
-cd nlp_esperanto_practica
+git clone https://github.com/EduardoEO/nlp-esperanto-practice.git
+cd nlp-esperanto-practice
 pip install -e ".[test,notebook,etl,docs]"
 pytest
 ```
 
-En un cuaderno de Colab: `!pip install git+https://github.com/EduardoEO/nlp_esperanto_practica.git`
+En un cuaderno de Colab: `!pip install git+https://github.com/EduardoEO/nlp-esperanto-practice.git`
 
 ## Uso
 
