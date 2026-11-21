@@ -18,5 +18,4 @@ data/raw/
 # Informes de diagnóstico locales
 salidas/
 
-MANIFEST_SHA256.json
 validacion_previa/
