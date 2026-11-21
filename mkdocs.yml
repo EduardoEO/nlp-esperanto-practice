@@ -1,6 +1,6 @@
 site_name: NLP Esperanto Docs
 site_description: Documentación de la librería de NLP en Esperanto
-site_author: 
+site_author: Equipo de Minería de Textos - CUNEF
 repo_url: https://github.com/EduardoEO/nlp_esperanto_practica
 repo_name: EduardoEO/nlp_esperanto_practica
 
@@ -31,7 +31,14 @@ plugins:
       handlers:
         python:
           paths: [src]
+          options:
+            show_source: false
+            docstring_style: google
 
 nav:
   - Inicio: index.md
+  - Guía rápida: guia-rapida.md
+  - Decisiones de diseño: decisiones-diseno.md
+  - Gramática implementada: gramatica.md
+  - Dataset: dataset.md
   - Referencia de la API: api.md

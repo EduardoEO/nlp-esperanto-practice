@@ -30,15 +30,14 @@ jobs:
           if [ -f data/dataset.csv ]; then python scripts/validate_dataset.py data/dataset.csv; \
           else echo "data/dataset.csv todavía no existe: se omite"; fi
 
-  # Descomentar cuando docs/index.md y el resto de docs/ estén en main y enlazados en mkdocs.yml:
-  # docs:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-python@v5
-  #       with:
-  #         python-version: "3.12"
-  #         cache: pip
-  #     - run: pip install ".[docs]"
-  #     - name: La documentación debe compilar sin avisos
-  #       run: mkdocs build --strict
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install ".[docs]"
+      - name: La documentación debe compilar sin avisos
+        run: mkdocs build --strict
