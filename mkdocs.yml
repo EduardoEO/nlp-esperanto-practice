@@ -1,8 +1,8 @@
 site_name: NLP Esperanto Docs
 site_description: Documentación de la librería de NLP en Esperanto
 site_author: Eduardo Estefanía, Ignacio Bravo y Alejandro Jesús Castro
-repo_url: https://github.com/EduardoEO/nlp_esperanto_practica
-repo_name: EduardoEO/nlp_esperanto_practica
+repo_url: https://github.com/EduardoEO/nlp-esperanto-practice
+repo_name: EduardoEO/nlp-esperanto-practice
 
 theme:
   name: material
