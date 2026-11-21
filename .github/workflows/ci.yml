@@ -19,21 +19,18 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Instalar la librería y dependencias de test
-        run: pip install -e ".[test,etl]"
-        # Cuando se suba la Fase 3 (cuaderno), ampliar a:
-        # run: pip install -e ".[test,notebook,etl,runner]"
+        run: pip install -e ".[test,notebook,etl,runner]"
       - name: Pruebas unitarias
         run: pytest --cov=esperanto_nlp --cov-report=term-missing
-      # Descomentar al subir la Fase 3 (notebooks/, scripts/run_notebook.py, sklearn_wrapper.py):
-      # - name: Ejecutar cuaderno completo sin red
-      #   if: matrix.python-version == '3.12'
-      #   run: python scripts/run_notebook.py --offline
+      - name: Ejecutar cuaderno completo sin red
+        if: matrix.python-version == '3.12'
+        run: python scripts/run_notebook.py --offline
       - name: Validar contrato de datos (si ya existe el dataset)
         run: |
           if [ -f data/dataset.csv ]; then python scripts/validate_dataset.py data/dataset.csv; \
           else echo "data/dataset.csv todavía no existe: se omite"; fi
 
-  # Descomentar al subir docs/index.md y src/esperanto_nlp/sklearn_wrapper.py (Fase 3):
+  # Descomentar cuando docs/index.md y el resto de docs/ estén en main y enlazados en mkdocs.yml:
   # docs:
   #   runs-on: ubuntu-latest
   #   steps:
