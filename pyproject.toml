@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "esperanto-nlp"
-version = "0.3.1"
+version = "1.0.0"
 description = "Librería de NLP para Esperanto basada en reglas, con API estilo spaCy (práctica de Minería de Textos, CUNEF)."
 readme = "README.md"
 requires-python = ">=3.9"

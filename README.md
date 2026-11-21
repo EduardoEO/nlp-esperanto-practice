@@ -12,7 +12,7 @@ El proyecto consta de tres componentes principales:
 ## 📁 Estructura del Proyecto
 
 ```text
-nlp_esperanto_practica/
+nlp-esperanto-practice/
 ├── .github/workflows/ci.yml       # CI con GitHub Actions (pytest automatizado)
 ├── docs/                          # Documentación para Read the Docs / MkDocs
 ├── mkdocs.yml                     # Configuración de MkDocs
@@ -46,14 +46,14 @@ La librería está diseñada para ser instalable directamente mediante `pip` tan
 
 ### Instalación en local (modo desarrollo):
 ```bash
-git clone https://github.com/<tu-usuario>/nlp_esperanto_practica.git
-cd nlp_esperanto_practica
+git clone https://github.com/EduardoEO/nlp-esperanto-practice.git
+cd nlp-esperanto-practice
 pip install -e ".[test,notebook]"
 ```
 
 ### Instalación remota (Google Colab):
 ```bash
-!pip install git+https://github.com/<tu-usuario>/nlp_esperanto_practica.git
+!pip install git+https://github.com/EduardoEO/nlp-esperanto-practice.git
 ```
 
 ---
